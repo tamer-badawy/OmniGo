@@ -82,7 +82,7 @@ func (sm *StorageManager) LoadAllSessions() ([]*ChatSession, error) {
 		}
 		filePath := filepath.Join(sm.DataDir, file.Name())
 		fileBytes, err := os.ReadFile(filePath)
-		if err == nil {
+		if err != nil {
 			return nil, err
 		}
 
