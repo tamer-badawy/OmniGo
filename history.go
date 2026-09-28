@@ -17,7 +17,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"time"
@@ -34,7 +36,8 @@ type ChatSession struct {
 
 type StorageManager struct {
 	DataDir  string
-	Provider string // Gemini or OpenAi for now
+	MediaDir string
+	Provider string // Gemini, OpenAi, etc ...
 }
 
 func NewStorageManager(provider string) (*StorageManager, error) {
@@ -43,15 +46,46 @@ func NewStorageManager(provider string) (*StorageManager, error) {
 		return nil, fmt.Errorf("failed to detect native system config directory: %w", err)
 	}
 	appHistoryDir := filepath.Join(baseConfigDir, "OmniGo", "history", provider)
+	appMediaDir := filepath.Join(baseConfigDir, "OmniGo", "media", provider)
 
 	if err := os.MkdirAll(appHistoryDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to instantiate history database layout: %w", err)
 	}
+	if err := os.MkdirAll(appMediaDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to instantiate media database layout: %w", err)
+	}
 
 	return &StorageManager{
 		DataDir:  appHistoryDir,
+		MediaDir: appMediaDir,
 		Provider: provider,
 	}, nil
+}
+
+func (sm *StorageManager) CopyMedia(attachments []string) ([]string, error) {
+	var mediaPaths []string
+
+	for _, attachment := range attachments {
+		inFile, err := os.Open(attachment)
+		if err != nil {
+			return nil, err
+		}
+		defer inFile.Close()
+		ext := path.Ext(attachment)
+
+		outPath := filepath.Join(sm.MediaDir, fmt.Sprintf("%d%s", time.Now().Nanosecond(), ext))
+		outFile, err := os.Create(outPath)
+		if err != nil {
+			return nil, err
+		}
+		defer outFile.Close()
+		_, err = io.Copy(outFile, inFile)
+		if err != nil {
+			return nil, err
+		}
+		mediaPaths = append(mediaPaths, outPath)
+	}
+	return mediaPaths, nil
 }
 
 func (sm *StorageManager) SaveSession(session *ChatSession) error {
@@ -66,6 +100,13 @@ func (sm *StorageManager) SaveSession(session *ChatSession) error {
 }
 
 func (sm *StorageManager) DeleteSession(session *ChatSession) error {
+	for _, msg := range session.Messages {
+		for _, attachemnt := range msg.Attachments {
+			if attachemnt != "" {
+				os.Remove(attachemnt)
+			}
+		}
+	}
 	filePath := filepath.Join(sm.DataDir, fmt.Sprintf("%s.json", session.ID))
 	return os.Remove(filePath)
 }

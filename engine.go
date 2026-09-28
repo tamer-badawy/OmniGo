@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"path"
 	"slices"
 	"strings"
 	"time"
@@ -44,6 +45,21 @@ func GetAIProvidersName() []string {
 		names[i] = v.Name
 	}
 	return names
+}
+
+func FormatMarkDownToAddAttachemnts(text string, attachments []string) string {
+	markDown := text
+	for _, attachment := range attachments {
+		ext := path.Ext(attachment)
+		if ext == ".jpg" || ext == "jpeg" || ext == "png" || ext == "gif" {
+			markDown = fmt.Sprintf("%s\n\n![📎 Attachment: Image](file://%s)", text, attachment)
+
+		} else {
+			markDown = fmt.Sprintf("%s\n\n[📎 Download Attachment %s](file://%s)", text, strings.ToUpper(ext[1:]), attachment)
+
+		}
+	}
+	return markDown
 }
 
 func (app *OmniApp) SetActiveAIClient() error {
@@ -80,9 +96,16 @@ func (app *OmniApp) LoadSavedAIProvider() {
 func (app *OmniApp) HandlePromptSubmission() {
 
 	userPrompt := app.PromptField.Text
+	attachments := app.PreviewPanel.GetAttachemntsPath()
 	if strings.TrimSpace(userPrompt) == "" {
 		return
 	}
+
+	if len(attachments) > 0 {
+		attachments, _ = app.StorageManager.CopyMedia(attachments)
+
+	}
+
 	// Comment out the lines between the "Benchmarking Speed Test" comments to disable benchmarking
 	// Benchmarking Speed Test
 	pipelineStart := time.Now()
@@ -96,7 +119,8 @@ func (app *OmniApp) HandlePromptSubmission() {
 
 	fyne.Do(func() {
 		app.PromptField.SetText("")
-		bubble := ui.NewChatBubble("user", userPrompt, app.ActiveAIProvider.Model)
+		app.PreviewPanel.ClearItems()
+		bubble := ui.NewChatBubble("user", userPrompt, app.ActiveAIProvider.Model, attachments)
 		app.ChatLogContainer.Add(bubble)
 		app.ScrollContainer.ScrollToBottom()
 		aiBubble = ui.NewChatBubble("ai", "", app.ActiveAIProvider.Model)
@@ -106,19 +130,18 @@ func (app *OmniApp) HandlePromptSubmission() {
 	})
 	// Check if this is the first message the  the  session , and  change the  title
 	if len(app.CurrentSession.Messages) == 0 {
-		titleLen := len(userPrompt)
-		if titleLen > 60 {
-			titleLen = 60
-		}
+		titleLen := min(len(userPrompt), 60)
 		app.CurrentSession.Title = userPrompt[:titleLen] + "..."
 		fyne.Do(func() {
 			app.SidebarList.Refresh()
 		})
 	}
+
 	app.CurrentSession.Messages = append(app.CurrentSession.Messages, ai.Message{
-		Role:      "user",
-		Text:      userPrompt,
-		Timestamp: time.Now(),
+		Role:        "user",
+		Text:        userPrompt,
+		Attachments: attachments,
+		Timestamp:   time.Now(),
 	})
 	errChan := make(chan error, 1)
 	go func() {
@@ -127,7 +150,7 @@ func (app *OmniApp) HandlePromptSubmission() {
 			return
 		}
 		aiTextBuffer := ""
-		err := app.ActiveAI.GenerateResponse(context.Background(), userPrompt, nil, func(tokenChunk string) {
+		err := app.ActiveAI.GenerateResponse(context.Background(), userPrompt, attachments, func(tokenChunk string) {
 			// Benchmarking Speed Test
 			if !firstTokenReceived {
 				firstTokenTime = time.Now()
@@ -176,7 +199,14 @@ func (app *OmniApp) HandlePromptSubmission() {
 	}()
 
 	if err := <-errChan; err != nil {
-		aiBubble.UpdateText(fmt.Sprintf("❌ **Error:** %v", err))
+		fyne.Do(func() {
+			aiBubble.UpdateText(fmt.Sprintf("❌ **Error:** %v", err))
+		})
+		app.CurrentSession.Messages = append(app.CurrentSession.Messages, ai.Message{
+			Role:      "model",
+			Text:      fmt.Sprintf("❌ **Error:** %v", err),
+			Timestamp: time.Now(),
+		})
 	}
 
 }
@@ -214,7 +244,7 @@ func (app *OmniApp) SwitchChatSession(index int) {
 			app.ChatLogContainer.Objects = nil
 			app.ChatLogContainer.Refresh()
 			for _, msg := range app.CurrentSession.Messages {
-				bubble := ui.NewChatBubble(msg.Role, msg.Text, app.ActiveAIProvider.Model)
+				bubble := ui.NewChatBubble(msg.Role, msg.Text, app.ActiveAIProvider.Model, msg.Attachments)
 				app.ChatLogContainer.Add(bubble)
 			}
 			app.ChatLogContainer.Refresh()

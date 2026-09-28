@@ -20,9 +20,10 @@ import (
 )
 
 type Message struct {
-	Role      string    `json:"role"` // user or model
-	Text      string    `json:"text"`
-	Timestamp time.Time `json:"timestamp"`
+	Role        string    `json:"role"` // user or model
+	Text        string    `json:"text"`
+	Attachments []string  `json:"attachments"`
+	Timestamp   time.Time `json:"timestamp"`
 }
 
 type AIClient interface {

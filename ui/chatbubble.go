@@ -16,33 +16,53 @@ package ui
 
 import (
 	"image/color"
+	"path"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
 type ChatBubble struct {
 	widget.BaseWidget
-	Role    string
-	Text    string
-	AIModel string
+	Role        string
+	Text        string
+	Attachments []string
+	AIModel     string
 
 	TextContainer *fyne.Container
 }
 
-func NewChatBubble(role, text, aiModel string) *ChatBubble {
+func NewChatBubble(role, text, aiModel string, attachments ...[]string) *ChatBubble {
+	var finalAttachments []string
+
+	if len(attachments) > 0 {
+		finalAttachments = attachments[0]
+	}
 	c := &ChatBubble{
-		Role:    role,
-		Text:    text,
-		AIModel: aiModel,
+		Role:        role,
+		Text:        text,
+		AIModel:     aiModel,
+		Attachments: finalAttachments,
 	}
 	c.ExtendBaseWidget(c)
 	return c
+}
+
+func generateAttachmentPreview(uri string, size fyne.Size) fyne.CanvasObject {
+
+	if path.Ext(uri) == ".png" || path.Ext(uri) == ".jpg" || path.Ext(uri) == ".jpeg" || path.Ext(uri) == ".gif" {
+		img := canvas.NewImageFromFile(uri)
+		img.SetMinSize(size)
+		img.FillMode = canvas.ImageFillContain
+		return img
+	}
+	return container.NewGridWrap(size, widget.NewFileIcon(storage.NewFileURI(uri)))
 }
 
 func (c *ChatBubble) CreateRenderer() fyne.WidgetRenderer {
@@ -76,7 +96,13 @@ func (c *ChatBubble) CreateRenderer() fyne.WidgetRenderer {
 
 	c.TextContainer = container.NewVBox(textEntry)
 
-	bubbleContent := container.NewVBox(container.NewPadded(nameLabel), c.TextContainer)
+	attachmentContainer := container.NewHBox()
+	for _, attachment := range c.Attachments {
+		thumbnail := generateAttachmentPreview(attachment, fyne.NewSize(50, 50))
+		attachmentContainer.Add(thumbnail)
+	}
+
+	bubbleContent := container.NewVBox(container.NewPadded(nameLabel), c.TextContainer, attachmentContainer)
 
 	stackContainer := container.NewStack(bubbleBg, bubbleContent)
 
@@ -93,60 +119,13 @@ func (c *ChatBubble) CreateRenderer() fyne.WidgetRenderer {
 
 func (c *ChatBubble) Refresh() {
 	dynamicContainer := container.NewVBox()
-	/*
-		snippetBlockRegex := regexp.MustCompile("(?s)```([a-zA-Z0-9_-]*)\\n(.*?)(?:```|$)|(?m)((?:^[ \\t]*>.*\\n?)+)")
-		lastIndex := 0
-		matches := snippetBlockRegex.FindAllStringSubmatchIndex(c.Text, -1)
 
-		for _, match := range matches {
-			startIndex := match[0]
-			endIndex := match[1]
-
-			if startIndex > lastIndex {
-				// Add the text before the snippet block
-				plainText := c.Text[lastIndex:match[0]]
-				normalText := widget.NewRichTextFromMarkdown(plainText)
-				normalText.Wrapping = fyne.TextWrapWord
-				dynamicContainer.Add(normalText)
-			}
-
-			// Figure out if it is a code  snippet or prompt snippet
-			if match[2] != -1 {
-				// this is a code snippet
-
-				lang := c.Text[match[2]:match[3]]
-				if lang == "" {
-					lang = "code" // Default to "code" if no language is specified
-				}
-
-				snippetText := c.Text[match[4]:match[5]]
-				snippetBlock := c.createSnippetBlockWithCopyButton(snippetText, lang)
-				dynamicContainer.Add(snippetBlock)
-			} else if match[6] != -1 {
-				// this is a blockquote snippet
-				quoteText := c.Text[match[6]:match[7]]
-				cleanQuoteText := regexp.MustCompile(`(?m)^[ \t]*>[ \t]*`).ReplaceAllString(quoteText, "")
-				blockquoteBlock := c.createBlockquoteWithCopyButton(string(cleanQuoteText))
-				dynamicContainer.Add(blockquoteBlock)
-			}
-
-			lastIndex = endIndex
-
-		}
-
-		if lastIndex < len(c.Text) {
-			// Add any remaining text after the last snippet block
-			plainText := c.Text[lastIndex:]
-			normalText := widget.NewRichTextFromMarkdown(plainText)
-			normalText.Wrapping = fyne.TextWrapWord
-			dynamicContainer.Add(normalText)
-		}
-	*/
 	segments := strings.Split(c.Text, "```")
 	for i, segment := range segments {
 		if strings.TrimSpace(segment) == "" {
 			continue
 		}
+
 		if i%2 == 1 {
 			lines := strings.SplitN(segment, "\n", 2)
 			lang := strings.TrimSpace(lines[0])
@@ -163,6 +142,7 @@ func (c *ChatBubble) Refresh() {
 
 			textBlock := widget.NewRichTextFromMarkdown(segment)
 			textBlock.Wrapping = fyne.TextWrapWord
+
 			dynamicContainer.Add(textBlock)
 
 		}

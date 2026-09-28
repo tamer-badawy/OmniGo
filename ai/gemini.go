@@ -36,7 +36,7 @@ type GeminiClient struct {
 
 // 🛠️ THE SYSTEM INSTRUCTION:
 // This hidden rule forces Gemini to structure its answers perfectly for OmniGo's layout engine
-const systemRule = "You are OmniGo, a fast Linux desktop assistant. Follow these strict formatting rules:\n\n" +
+const systemRule = "You are OmniGo, a fast Multi OS desktop assistant. Follow these strict formatting rules:\n\n" +
 	"1. Respond with normal conversational prose for your explanations and commentary.\n\n" +
 	"2. All programming scripts, terminal commands, or bash lines MUST be placed inside standard code blocks specifying the language (e.g., ```python or ```bash).\n\n" +
 	"3. Any generated emails, text prompts, reusable templates, or copyable paragraph responses MUST be wrapped inside a text code block labeled exactly as ```text."
@@ -130,12 +130,31 @@ func (g *GeminiClient) GenerateResponse(ctx context.Context, prompt string, atta
 func (g *GeminiClient) LoadHistory(messages []Message) error {
 
 	var sdkHistory []*genai.Content
+	var parts []*genai.Part
 
 	for _, m := range messages {
 		role := m.Role
+		parts = append(parts, &genai.Part{Text: m.Text})
+
+		for _, path := range m.Attachments {
+			fileBytes, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("failed to read the attachment from the disk: %w", err)
+			}
+			mimeType := mime.TypeByExtension(filepath.Ext(path))
+			if mimeType == "" {
+				mimeType = "application/octet-stream" // Default MIME type if unknown
+			}
+			filePart := genai.Blob{
+				MIMEType: mimeType,
+				Data:     fileBytes,
+			}
+			parts = append(parts, &genai.Part{InlineData: &filePart})
+		}
+
 		sdkHistory = append(sdkHistory, &genai.Content{
 			Role:  role,
-			Parts: []*genai.Part{{Text: m.Text}},
+			Parts: parts,
 		})
 	}
 	chat, err := g.client.Chats.Create(context.Background(), "gemini-3.6-flash",

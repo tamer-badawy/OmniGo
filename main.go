@@ -50,6 +50,8 @@ type OmniApp struct {
 	ChatLogContainer *fyne.Container
 	ScrollContainer  *container.Scroll
 	PromptField      *widget.Entry
+
+	PreviewPanel *ui.PreviewPanel
 }
 
 func main() {
@@ -76,7 +78,7 @@ func main() {
 		initialSession := &ChatSession{
 			ID:        fmt.Sprintf("session_%d", time.Now().UnixNano()),
 			Messages:  []ai.Message{},
-			Title:     "New Conversation Thread b",
+			Title:     "New Conversation Thread",
 			UpdatedAt: time.Now(),
 		}
 		omniApp.SessionList = append([]*ChatSession{initialSession}, omniApp.SessionList...)
@@ -114,6 +116,7 @@ func main() {
 					omniApp.SidebarList.Unselect(i)
 					omniApp.CurrentSession = nil
 				}
+				omniApp.StorageManager.DeleteSession(omniApp.SessionList[i])
 				omniApp.SessionList = append(omniApp.SessionList[:i], omniApp.SessionList[i+1:]...)
 				omniApp.SidebarList.Refresh()
 			}
@@ -176,13 +179,13 @@ func main() {
 		go omniApp.HandlePromptSubmission()
 	}
 
-	previewPanel := ui.NewPreviewPanel([]ui.PreviewPanelItem{})
+	omniApp.PreviewPanel = ui.NewPreviewPanel([]ui.PreviewPanelItem{})
 
 	attachButton := widget.NewButtonWithIcon("", theme.MailAttachmentIcon(), func() {
 		fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			if err == nil && reader != nil {
 				// Handle file selection
-				previewPanel.AddItem(ui.PreviewPanelItem{
+				omniApp.PreviewPanel.AddItem(ui.PreviewPanelItem{
 					Title:        reader.URI().Name(),
 					ThumbnailURI: reader.URI(),
 				})
@@ -196,7 +199,7 @@ func main() {
 
 	inputBar := container.NewBorder(nil, nil, attachButton, sendButton, omniApp.PromptField)
 
-	bottomPanel := container.NewVBox(previewPanel, inputBar)
+	bottomPanel := container.NewVBox(omniApp.PreviewPanel, inputBar)
 
 	rightPanel := container.NewBorder(topBar, bottomPanel, nil, nil, omniApp.ScrollContainer)
 
@@ -204,7 +207,7 @@ func main() {
 	split.Offset = 0.25
 
 	myWindow.SetContent(split)
-	myWindow.Resize(fyne.NewSize(950, 650))
+	myWindow.Resize(fyne.NewSize(1920, 1080))
 	omniApp.LoadAndSynchronizeHistoryOnLaunch()
 	myWindow.ShowAndRun()
 

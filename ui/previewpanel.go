@@ -55,6 +55,19 @@ func (p *PreviewPanel) RemoveItem(index int) {
 	}
 }
 
+func (p *PreviewPanel) ClearItems() {
+	p.Items = nil
+	p.Refresh()
+}
+
+func (p *PreviewPanel) GetAttachemntsPath() []string {
+	var paths []string
+	for _, item := range p.Items {
+		paths = append(paths, item.ThumbnailURI.Path())
+	}
+	return paths
+}
+
 func (p *PreviewPanel) CreateRenderer() fyne.WidgetRenderer {
 	// Create a list to display the preview items
 	previewBackground := canvas.NewRectangle(color.NRGBA{R: 53, G: 114, B: 214, A: 35})
