@@ -38,9 +38,11 @@ This pattern makes it incredibly easy to expand the application. If you want to 
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
-Ensure you have [Go (1.26 or higher)](https://go.dev) installed on your system. 
+
+Ensure you have [Go (1.26 or higher)](https://go.dev) installed on your system.
 
 If you are on **Linux**, ensure your system has the standard developer headers for graphics compilation installed:
+
 ```bash
 # Ubuntu/Debian
 sudo apt install libgl1-mesa-dev xorg-dev libx11-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev
@@ -51,27 +53,30 @@ sudo dnf install mesa-libGL-dev libX11-devel libXrandr-devel libXi-devel libXcur
 ```
 
 ### 2. Installation & Setup
+
 Clone the workspace and initialize your local module definitions:
 
 ```bash
 git clone https://github.com/tamer-badawy/OmniGo.git
 cd OmniGo
 
-# Initialize dependencies 
+# Initialize dependencies
 go mod tidy
 ```
 
 ### 3. Running Locally
+
 Run the source file immediately using the Go toolchain:
+
 ```bash
-go run main.go
+go run .
 ```
 
 ---
 
 ## 🧰 How to Configure API Keys
 
-OmniGo does not save or log your private access keys over open public networks. 
+OmniGo does not save or log your private access keys over open public networks.
 
 1. Launch OmniGo and locate the **Gear Icon (⚙️)** in the top right corner.
 2. Click it to bring up the isolated **Secure Credentials Registry Panel**.
@@ -101,7 +106,9 @@ GOOS=darwin GOARCH=arm64 go build -o omnigo_apple main.go
 ---
 
 ## 🤝 Contributing
+
 Contributions are welcome! If you want to add new AI providers, themes, or streaming mechanics:
+
 1. Fork the project repository.
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`).
 3. Commit your variations (`git commit -m 'Add some AmazingFeature'`).
@@ -111,4 +118,5 @@ Contributions are welcome! If you want to add new AI providers, themes, or strea
 ---
 
 ## 📄 License
+
 Distributed under the Apache-2.0 License. See `LICENSE` for more information.
