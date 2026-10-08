@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -26,6 +27,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/tamer-badawy/OmniGo/ai"
@@ -83,6 +85,9 @@ func main() {
 		}
 		omniApp.SessionList = append([]*ChatSession{initialSession}, omniApp.SessionList...)
 		omniApp.CurrentSession = initialSession
+		if omniApp.ActiveAIProvider.Name == "Cohere" {
+			omniApp.ActiveAI.(*ai.CohereClient).ClearSession() // Clear Cohere session when starting a new chat
+		}
 		omniApp.SidebarList.Refresh()
 		omniApp.SidebarList.Select(0)
 		omniApp.ChatLogContainer.Objects = nil
@@ -126,6 +131,7 @@ func main() {
 		},
 	)
 	omniApp.SidebarList.OnSelected = func(id widget.ListItemID) {
+
 		omniApp.SwitchChatSession(id)
 	}
 
@@ -137,37 +143,48 @@ func main() {
 
 	// Create top bar
 
-	omniApp.AISelector = widget.NewSelect(GetAIProvidersName(), func(value string) {
-		omniApp.Preferences.SetString("AIProvider", value)
+	omniApp.AISelector = widget.NewSelect(GetAIProvidersNameAndModel(), func(value string) {
+		name := strings.TrimSpace(strings.SplitN(value, "-", 2)[0])
+		model := strings.TrimSpace(strings.SplitN(value, "-", 2)[1])
+		omniApp.Preferences.SetString("AIProvider", name)
 		selectedProviderIndex := slices.IndexFunc(AIProviders, func(p AIProviderInfo) bool {
-			return p.Name == value
+			return p.Name == name && p.Model == model
 		})
 		omniApp.ActiveAIProvider = AIProviders[selectedProviderIndex]
 		err := omniApp.SetActiveAIClient()
 		if err != nil {
 
-			ui.ShowSettingDialog(omniApp.Preferences, omniApp.Window, omniApp.LoadSavedAIProvider)
+			dialog.NewError(err, omniApp.Window).Show()
+
+			return
 
 		}
+		omniStorage, err := NewStorageManager(omniApp.ActiveAIProvider.Name)
+		if err != nil {
+			panic(err) // Crach safty catch on boot if OS system directory failed
+		}
+		omniApp.StorageManager = omniStorage
+		omniApp.LoadAndSynchronizeHistory()
 	})
 	omniApp.LoadSavedAIProvider()
 
-	storage, err := NewStorageManager(omniApp.ActiveAIProvider.Name)
+	omniStorage, err := NewStorageManager(omniApp.ActiveAIProvider.Name)
 	if err != nil {
 		panic(err) // Crach safty catch on boot if OS system directory failed
 	}
 
-	omniApp.StorageManager = storage
+	omniApp.StorageManager = omniStorage
 
 	settingButton := widget.NewButtonWithIcon("", theme.SettingsIcon(), func() {
 		ui.ShowSettingDialog(omniApp.Preferences, omniApp.Window, omniApp.LoadSavedAIProvider)
 	})
 	settingButton.Importance = widget.LowImportance
-	topBar := container.NewHBox(
+	topBar := container.NewBorder(
+		nil,
+		nil,
 		widget.NewLabel("Active AI:"),
-		omniApp.AISelector,
-		layout.NewSpacer(),
 		settingButton,
+		omniApp.AISelector,
 	)
 
 	// Create right panel
@@ -184,13 +201,19 @@ func main() {
 	attachButton := widget.NewButtonWithIcon("", theme.MailAttachmentIcon(), func() {
 		fileDialog := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
 			if err == nil && reader != nil {
+				defer reader.Close()
 				// Handle file selection
 				omniApp.PreviewPanel.AddItem(ui.PreviewPanelItem{
 					Title:        reader.URI().Name(),
 					ThumbnailURI: reader.URI(),
 				})
+
 			}
 		}, myWindow)
+		// Cohere  accept only images as attachments
+		if omniApp.ActiveAIProvider.Name == "Cohere" {
+			fileDialog.SetFilter(storage.NewExtensionFileFilter([]string{".png", ".jpg", ".jpeg", ".wepb", ".gif"}))
+		}
 		fileDialog.Show()
 	})
 	sendButton := widget.NewButtonWithIcon("", theme.MailSendIcon(), func() {
@@ -208,7 +231,7 @@ func main() {
 
 	myWindow.SetContent(split)
 	myWindow.Resize(fyne.NewSize(1920, 1080))
-	omniApp.LoadAndSynchronizeHistoryOnLaunch()
+	omniApp.LoadAndSynchronizeHistory()
 	myWindow.ShowAndRun()
 
 }
