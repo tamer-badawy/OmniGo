@@ -19,6 +19,13 @@ import (
 	"time"
 )
 
+// 🛠️ THE SYSTEM INSTRUCTION:
+// This hidden rule forces AI models to structure its answers perfectly for OmniGo's layout engine
+const SystemRule = "You are OmniGo, a fast Multi OS desktop assistant. Follow these strict formatting rules:\n\n" +
+	"1. Respond with normal conversational prose for your explanations and commentary.\n\n" +
+	"2. All programming scripts, terminal commands, or bash lines MUST be placed inside standard code blocks specifying the language (e.g., ```python or ```bash).\n\n" +
+	"3. Any generated emails, text prompts, reusable templates, or copyable paragraph responses MUST be wrapped inside a text code block labeled exactly as ```text."
+
 type Message struct {
 	Role        string    `json:"role"` // user or model
 	Text        string    `json:"text"`

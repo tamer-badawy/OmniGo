@@ -12,7 +12,7 @@ By breaking away from heavy web-engine wrappers like Electron or WebViews, OmniG
 
 ![OmniGo UI Features](./assets/preview_features.png)
 
-- **Multi-Provider Architecture**: Seamlessly alternate backends between Google Gemini 3.6 and OpenAI ChatGPT via structural decouple layers.
+- **Multi-Provider Architecture**: Seamlessly alternate backends between Google Gemini 3.6 and Cohere via structural decouple layers.
 - **Virtualized Sidebar Navigation**: Powered by a high-performance recycled `widget.List` to seamlessly scroll thousands of past chat interactions smoothly.
 - **Native Markdown Viewer**: Renders titles, code blocks, lists, and formatted data payloads instantly using native canvas elements (`widget.NewRichTextFromMarkdown`).
 - **Cross-Platform Secure Storage**: Leverages internal operating system hooks (`~/.config`, AppData, or macOS Sandboxes) to store sensitive API credentials safely out of sight.
@@ -27,6 +27,16 @@ OmniGo is designed to be highly modular. Instead of hardcoding vendor-specific c
 ```go
 // The engine contract that wraps all external service calls
 type AIClient interface {
+	GetName() string
+
+	GetDescription() string
+
+	GetAPIKey() string
+
+	SetAPIKey(key string)
+
+	LoadHistory(messages []Message) error
+
 	GenerateResponse(ctx context.Context, prompt string, attachmentPath []string, onTokenChunk func(string)) error
 }
 ```
@@ -80,7 +90,7 @@ OmniGo does not save or log your private access keys over open public networks.
 
 1. Launch OmniGo and locate the **Gear Icon (⚙️)** in the top right corner.
 2. Click it to bring up the isolated **Secure Credentials Registry Panel**.
-3. Paste your active tokens from your [Google AI Studio](https://aistudio.google.com) or [OpenAI Platform](https://openai.com) accounts.
+3. Paste your active tokens from your [Google AI Studio](https://aistudio.google.com) or [Cohere Platform](https://cohere.com) accounts.
 4. Click **Save**. OmniGo encrypts/stores the preferences profile path natively inside your standard user workspace registry layout.
 
 ---

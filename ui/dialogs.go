@@ -23,25 +23,25 @@ import (
 
 func ShowSettingDialog(preference fyne.Preferences, window fyne.Window, onClose func()) {
 	geminiKeyEntry := widget.NewPasswordEntry()
-	openAIKeyEntry := widget.NewPasswordEntry()
+	cohereKeyEntry := widget.NewPasswordEntry()
 	geminiKeyEntry.SetPlaceHolder("Paste Gemini API Key")
-	openAIKeyEntry.SetPlaceHolder("Paste OpenAI API Key")
+	cohereKeyEntry.SetPlaceHolder("Paste Cohere API Key")
 	geminiKeyEntry.SetText(preference.StringWithFallback("gemini_key", ""))
-	openAIKeyEntry.SetText(preference.StringWithFallback("openai_key", ""))
+	cohereKeyEntry.SetText(preference.StringWithFallback("cohere_key", ""))
 
 	descLabel := widget.NewLabel("Please provide your API keys for the AI providers you want to use.\nThese keys are necessary for authentication and access to the respective AI services.")
 	descLabel.Wrapping = fyne.TextWrapWord
 
 	form := widget.NewForm(
 		widget.NewFormItem("Gemini API Key", geminiKeyEntry),
-		widget.NewFormItem("OpenAI API Key", openAIKeyEntry),
+		widget.NewFormItem("Cohere API Key", cohereKeyEntry),
 	)
 	c := container.NewVBox(descLabel, widget.NewSeparator(), container.NewPadded(form))
 
 	d := dialog.NewCustomConfirm("AI Settings", "Save", "Cancel", c, func(confirmed bool) {
 		if confirmed {
 			preference.SetString("gemini_key", geminiKeyEntry.Text)
-			preference.SetString("openai_key", openAIKeyEntry.Text)
+			preference.SetString("cohere_key", cohereKeyEntry.Text)
 			onClose()
 
 		}

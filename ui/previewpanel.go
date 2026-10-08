@@ -80,7 +80,7 @@ func (p *PreviewPanel) CreateRenderer() fyne.WidgetRenderer {
 }
 
 func createImgPreview(uri fyne.URI, size fyne.Size) fyne.CanvasObject {
-	if uri.Extension() == ".png" || uri.Extension() == ".jpg" || uri.Extension() == ".jpeg" || uri.Extension() == ".gif" {
+	if uri.Extension() == ".png" || uri.Extension() == ".jpg" || uri.Extension() == ".jpeg" || uri.Extension() == ".gif" || uri.Extension() == ".webp" {
 		img := canvas.NewImageFromURI(uri)
 		img.SetMinSize(size)
 		img.FillMode = canvas.ImageFillContain

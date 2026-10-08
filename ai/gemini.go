@@ -26,7 +26,7 @@ import (
 )
 
 type GeminiClient struct {
-	name        string
+	model       string
 	description string
 	apiKey      string
 
@@ -34,14 +34,7 @@ type GeminiClient struct {
 	chat   *genai.Chat
 }
 
-// 🛠️ THE SYSTEM INSTRUCTION:
-// This hidden rule forces Gemini to structure its answers perfectly for OmniGo's layout engine
-const systemRule = "You are OmniGo, a fast Multi OS desktop assistant. Follow these strict formatting rules:\n\n" +
-	"1. Respond with normal conversational prose for your explanations and commentary.\n\n" +
-	"2. All programming scripts, terminal commands, or bash lines MUST be placed inside standard code blocks specifying the language (e.g., ```python or ```bash).\n\n" +
-	"3. Any generated emails, text prompts, reusable templates, or copyable paragraph responses MUST be wrapped inside a text code block labeled exactly as ```text."
-
-func NewGeminiClient(ctx context.Context, name, description, apiKey string) (*GeminiClient, error) {
+func NewGeminiClient(ctx context.Context, model, description, apiKey string) (*GeminiClient, error) {
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
 		APIKey:  apiKey,
@@ -51,10 +44,10 @@ func NewGeminiClient(ctx context.Context, name, description, apiKey string) (*Ge
 		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
 	}
 
-	chat, err := client.Chats.Create(ctx, "gemini-3.6-flash",
+	chat, err := client.Chats.Create(ctx, model,
 		&genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{
-				Parts: []*genai.Part{{Text: systemRule}},
+				Parts: []*genai.Part{{Text: SystemRule}},
 			},
 		},
 		nil)
@@ -63,7 +56,7 @@ func NewGeminiClient(ctx context.Context, name, description, apiKey string) (*Ge
 	}
 
 	return &GeminiClient{
-		name:        name,
+		model:       model,
 		description: description,
 		apiKey:      apiKey,
 		client:      client,
@@ -72,7 +65,7 @@ func NewGeminiClient(ctx context.Context, name, description, apiKey string) (*Ge
 }
 
 func (g *GeminiClient) GetName() string {
-	return g.name
+	return g.model
 }
 
 func (g *GeminiClient) GetDescription() string {
@@ -157,10 +150,10 @@ func (g *GeminiClient) LoadHistory(messages []Message) error {
 			Parts: parts,
 		})
 	}
-	chat, err := g.client.Chats.Create(context.Background(), "gemini-3.6-flash",
+	chat, err := g.client.Chats.Create(context.Background(), g.model,
 		&genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{
-				Parts: []*genai.Part{{Text: systemRule}},
+				Parts: []*genai.Part{{Text: SystemRule}},
 			},
 		},
 		sdkHistory,

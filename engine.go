@@ -17,12 +17,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"path"
+	"reflect"
+
 	"slices"
 	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/dialog"
 	"github.com/tamer-badawy/OmniGo/ai"
 	"github.com/tamer-badawy/OmniGo/ui"
 )
@@ -36,34 +38,20 @@ type AIProviderInfo struct {
 
 var AIProviders = []AIProviderInfo{
 	{Name: "Gemini", APIKeyName: "gemini_key", Description: "Google Gemini AI Client", Model: "Gemini 3.6 Flash"},
-	{Name: "OpenAI", APIKeyName: "openai_key", Description: "OpenAI ChatGPT AI Client", Model: "ChatGPT-4o"},
+	{Name: "Cohere", APIKeyName: "cohere_key", Description: "Cohere CommandA+ AI Client", Model: "command-a-plus-05-2026"},
 }
 
-func GetAIProvidersName() []string {
+func GetAIProvidersNameAndModel() []string {
 	names := make([]string, len(AIProviders))
 	for i, v := range AIProviders {
-		names[i] = v.Name
+		names[i] = fmt.Sprintf("%s - %s", v.Name, v.Model)
 	}
 	return names
 }
 
-func FormatMarkDownToAddAttachemnts(text string, attachments []string) string {
-	markDown := text
-	for _, attachment := range attachments {
-		ext := path.Ext(attachment)
-		if ext == ".jpg" || ext == "jpeg" || ext == "png" || ext == "gif" {
-			markDown = fmt.Sprintf("%s\n\n![📎 Attachment: Image](file://%s)", text, attachment)
-
-		} else {
-			markDown = fmt.Sprintf("%s\n\n[📎 Download Attachment %s](file://%s)", text, strings.ToUpper(ext[1:]), attachment)
-
-		}
-	}
-	return markDown
-}
-
 func (app *OmniApp) SetActiveAIClient() error {
 	// OmniApp.ActiveAIProvider is Already Set
+
 	apiKey := app.Preferences.StringWithFallback(app.ActiveAIProvider.APIKeyName, "")
 	var err error
 	switch app.ActiveAIProvider.Name {
@@ -71,9 +59,11 @@ func (app *OmniApp) SetActiveAIClient() error {
 
 		app.ActiveAI, err = ai.NewGeminiClient(app.context, app.ActiveAIProvider.Model, app.ActiveAIProvider.Description, apiKey)
 		return err
-	case "OpenAI":
-		app.ActiveAIProvider = AIProviders[1]
+	case "Cohere":
 
+		app.ActiveAI, err = ai.NewCohereClient(app.context, app.ActiveAIProvider.Model, app.ActiveAIProvider.Description, apiKey)
+
+		return err
 	}
 	// No Implemented AIProvider found
 	return fmt.Errorf("failed No AI Provider found or not implemented : %s", app.ActiveAIProvider.Name)
@@ -90,7 +80,7 @@ func (app *OmniApp) LoadSavedAIProvider() {
 	} else {
 		app.ActiveAIProvider = AIProviders[selectedProviderIndex]
 	}
-	app.AISelector.SetSelected(app.ActiveAIProvider.Name)
+	app.AISelector.SetSelected(fmt.Sprintf("%s - %s", app.ActiveAIProvider.Name, app.ActiveAIProvider.Model))
 }
 
 func (app *OmniApp) HandlePromptSubmission() {
@@ -145,7 +135,7 @@ func (app *OmniApp) HandlePromptSubmission() {
 	})
 	errChan := make(chan error, 1)
 	go func() {
-		if app.ActiveAI == nil {
+		if reflect.ValueOf(app.ActiveAI).IsNil() {
 			errChan <- fmt.Errorf("AI client is not initialized. Please check your API keys and settings.")
 			return
 		}
@@ -207,11 +197,12 @@ func (app *OmniApp) HandlePromptSubmission() {
 			Text:      fmt.Sprintf("❌ **Error:** %v", err),
 			Timestamp: time.Now(),
 		})
+		app.StorageManager.SaveSession(app.CurrentSession)
 	}
 
 }
 
-func (app *OmniApp) LoadAndSynchronizeHistoryOnLaunch() {
+func (app *OmniApp) LoadAndSynchronizeHistory() {
 	records, err := app.StorageManager.LoadAllSessions()
 	if err != nil || len(records) == 0 {
 		initialSession := &ChatSession{
@@ -220,23 +211,32 @@ func (app *OmniApp) LoadAndSynchronizeHistoryOnLaunch() {
 			Title:     "New Conversation Thread",
 			UpdatedAt: time.Now(),
 		}
-		app.SessionList = append(app.SessionList, initialSession)
+		app.SessionList = append(records, initialSession)
 		app.CurrentSession = initialSession
 		app.SidebarList.Refresh()
 		app.SidebarList.Select(0)
+		app.SwitchChatSession(0)
 		return
 	}
 	app.SessionList = records
 	app.SidebarList.Refresh()
 	app.SidebarList.Select(0)
+	app.SwitchChatSession(0)
 }
 
 func (app *OmniApp) SwitchChatSession(index int) {
 	if index < 0 || index >= len(app.SessionList) {
 		return
 	}
+
 	app.CurrentSession = app.SessionList[index]
-	app.ActiveAI.LoadHistory(app.CurrentSession.Messages)
+
+	err := app.ActiveAI.LoadHistory(app.CurrentSession.Messages)
+	if err != nil {
+		dlg := dialog.NewError(err, app.Window)
+		dlg.Show()
+
+	}
 
 	// Update the  UI
 	go func() {
